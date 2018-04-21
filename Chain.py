@@ -9,6 +9,8 @@ import os
 
 
 class BlockChain(object):
+    # TODO:(charles@aic.ac.cn) Add network basic operations for requests lib.
+    # TODO:(charles@aic.ac.cn) Creating user-friendly interface.
     """
     Main Part of the BlockChain
     Attributes:
