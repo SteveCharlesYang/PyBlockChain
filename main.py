@@ -10,6 +10,8 @@
 """
 Web interact with the BlockChain
 """
+# TODO(charles@aic.ac.cn) Save transactions timely or when close the program into files.
+# TODO(charles@aic.ac.cn) Config, especially initial config, is totally a mess.
 from flask import Flask, jsonify, request
 from uuid import uuid4
 from Chain import BlockChain
@@ -21,13 +23,15 @@ from gevent.pywsgi import WSGIServer
 import time
 monkey.patch_all()
 
-
+# Setup config reader
 config = cp.ConfigParser()
 app = Flask(__name__)
 # ID of the miner/user.
 node_identifier = '-1'
 # Initialize the main blockchain.
 MainChain = BlockChain()
+# Setup loggers
+# TODO:(charles@aic.ac.cn) Set debug level in config file.
 logger = logging.getLogger('BlockChain')
 logger.setLevel(logging.DEBUG)
 fileLogHandler = logging.FileHandler('blockchain.log')
@@ -44,6 +48,7 @@ def config_init():
     config.set('api', 'bind_ip', '0.0.0.0')
     config.set('api', 'port', '5000')
     config.add_section('identity')
+    # User id, also the id for mining and transaction.
     user_uuid = str(uuid4()).replace('-', '')
     logger.info('User uuid: ' + user_uuid)
     config.set('identity', 'uuid', user_uuid)
@@ -81,6 +86,7 @@ def full_chain():
 
 @app.route('/mine', methods=['GET'])
 def mine():
+    # TODO:(charles@aic.ac.cn) Erase temp transactions when a new block is created.
     """
     Main in the blockchain.
     :return: Information about the mined data.
@@ -112,6 +118,7 @@ def mine():
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
+    # TODO:(charles@aic.ac.cn) Broadcast this transaction to the other nodes.
     """
     Start a new Transaction.
     data = {
@@ -122,10 +129,11 @@ def new_transaction():
     :return: The result of the transaction.
     """
     values = request.get_json()
-
+    # Verify that all necessary elements are in the request.
     required = ['sender', 'recipient', 'amount']
     if not all(k in values for k in required):
         return 'Missing values', 400
+    # Judge if the extra message is in the transaction.
     if 'message' in values:
         index = MainChain.new_transaction(values['sender'], values['recipient'], values['amount'], values['message'])
     else:
@@ -156,6 +164,7 @@ def register_nodes():
     response = {
         'message': 'New nodes have been added',
         'total_nodes': list(MainChain.nodes),
+        # When nodes are added, extra process will be performed to sync with them.
         'sync_replaced': MainChain.resolve_conflicts()
     }
     return jsonify(response), 201
@@ -171,13 +180,14 @@ def consensus():
     :return: The status of the present chain.
     """
     values = request.get_json()
+    # Judge whether it's total sync or single point sync.
     if values is None:
         nodes = None
     else:
         nodes = values.get('nodes')
         if nodes is None:
             return "Error: Please supply a valid list of nodes", 400
-    time.sleep(0.5)
+    # time.sleep(0.5)
     replaced = MainChain.resolve_conflicts(request_node=nodes)
 
     if replaced:
@@ -197,6 +207,10 @@ def consensus():
 @app.route('/save', methods=['GET'])
 # TODO:(charles@aic.ac.cn) This method should be removed when automatic saving is coded.
 def save_blocks():
+    """
+    Save blocks into file.
+    :return: Result of the saving and saved blocks.
+    """
     response = {
         'message': 'Chain state saved',
         'changed_block': MainChain.save_blocks(data_path)
@@ -218,14 +232,20 @@ if __name__ == '__main__':
         logger.warning('Data path not found, setup for the first run.')
         os.makedirs(data_path)
         logger.info('Will loading blocks.')
+    # Load exists data from directory.
     MainChain.load_blocks(data_path)
+    # Initially sync with nodes.
     MainChain.resolve_conflicts()
+    # Initially save blocks.
     MainChain.save_blocks(data_path)
+    # Define local api url.
     api_url = 'http://' + config.get('api', 'bind_ip') + ':' + str(config.getint('api', 'port'))
+    # Read user id.
     node_identifier = config.get('identity', 'uuid')
     """
     Run the main app.
     """
     logger.info('Now the API is open in ' + api_url)
+    # Flask is now replaced with concurrent and non-blocking service.
     http_server = WSGIServer((config.get('api', 'bind_ip'), config.getint('api', 'port')), app)
     http_server.serve_forever()

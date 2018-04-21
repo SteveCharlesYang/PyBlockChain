@@ -19,9 +19,8 @@ import requests
 
 
 class BlockChain(object):
-    # TODO:(charles@aic.ac.cn) Add network basic operations for requests lib.
     # TODO:(charles@aic.ac.cn) Save temporary stored data when program is going to close.
-    # TODO:(cha)
+    # TODO:(charles@aic.ac.cn) Replace directly send with route requests in the network.
     # TODO:(charles@aic.ac.cn) Creating user-friendly interface.
     """
     Main Part of the BlockChain
@@ -36,6 +35,7 @@ class BlockChain(object):
         last_block: Give the last position of the chain.
         proof_of_work: PoW function.
         valid_proof: Judge which proof is right.
+        request_resolve: Request other nodes to sync.
         register_node: Register a node to the network.
         valid_chain: Judge if a chain is valid.
         resolve_conflicts: To judge the conflict.
@@ -132,6 +132,7 @@ class BlockChain(object):
         return guess_hash[:4] == "1926"
 
     def register_node(self, address):
+        # TODO:(charles@aic.ac.cn) Add additional steps to verify.
         """
         Register a node to the network.
         :param address: <str> Url of the node.
@@ -141,10 +142,18 @@ class BlockChain(object):
         self.nodes.add(parsed_url.netloc)
 
     def request_resolve(self, node_address):
+        """
+        Request remote nodes to sync data.
+        :param node_address: <list> The address required to sync with.
+        :return: Nothing
+        """
+        # Send the requests to all of the nodes.
         neighbours = self.nodes
         for node in neighbours:
+            # TODO:(charles@aic.ac.cn) Give returns to show the status of sending.
             try:
                 requests.post(f'http://{node}/nodes/resolve', json={'nodes': node_address})
+            # TODO:(charles@aic.ac.cn) Add exception handle and message of this error.
             except requests.exceptions.RequestException:
                 pass
 
@@ -159,9 +168,6 @@ class BlockChain(object):
 
         while current_index < len(chain):
             block = chain[current_index]
-            # print(f'{last_block}')
-            # print(f'{block}')
-            # print("\n-----------\n")
 
             if block['previous_hash'] != self.hash(last_block):
                 return False
@@ -180,27 +186,30 @@ class BlockChain(object):
         :param request_node: <str> The node to resolve.
         :return: To judge if the chain is outdated or bad.
         """
+        # Judge if the mode is total sync or single point sync.
         if request_node is None:
             neighbours = self.nodes
         else:
             neighbours = [request_node]
         new_chain = None
-
+        # Define the minimal requirement of sync
         max_length = len(self.chain)
-
+        # Send requests to all of the nodes in the list
         for node in neighbours:
             try:
+                # TODO:(charles@aic.ac.cn) Request for part of the chain to improve performance.
                 response = requests.get(f'http://{node}/chain')
                 if response.status_code == 200:
                     length = response.json()['length']
                     chain = response.json()['chain']
-
+                    # The requirement of length and validation must both be met.
                     if length > max_length and self.valid_chain(chain):
                         max_length = length
                         new_chain = chain
-            except requests.exceptions.RequestException as err:
+            # TODO:(charles@aic.ac.cn) Add exception handle and message of this error.
+            except requests.exceptions.RequestException:
                 pass
-
+        # Replace the chain store locally.
         if new_chain:
             self.chain = new_chain
             return True
@@ -209,7 +218,6 @@ class BlockChain(object):
 
     def save_blocks(self, directory):
         # TODO(charles@aic.ac.cn) Error handle.
-        # TODO(charles@aic.ac.cn) Do not write old files.
         """
         Save the chain data and nodes.
         :param directory: The directory to save the data.
