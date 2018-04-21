@@ -68,18 +68,20 @@ class BlockChain(object):
         self.chain.append(block)
         return block
 
-    def new_transaction(self, sender, recipient, amount):
+    def new_transaction(self, sender, recipient, amount, message=None):
         """
         Start a new transaction.
         :param sender: <str> Sender.
         :param recipient: <str> Recipient.
         :param amount: <int> Amount in transaction.
+        :param message: <str> Message transferred in the network.
         :return: <int> The value of the present block with transaction recorded.
         """
         self.transactions.append({
             'sender': sender,
             'recipient': recipient,
             'amount': amount,
+            'message': message,
         })
         return self.last_block['index'] + 1
 
