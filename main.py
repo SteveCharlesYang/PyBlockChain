@@ -6,6 +6,8 @@ from uuid import uuid4
 from Chain import BlockChain
 import configparser as cp
 import os
+import logging
+import sys
 
 config = cp.ConfigParser()
 app = Flask(__name__)
@@ -13,6 +15,11 @@ app = Flask(__name__)
 node_identifier = '-1'
 # Initialize the main blockchain.
 MainChain = BlockChain()
+logger = logging.getLogger('BlockChain')
+logger.setLevel(logging.INFO)
+fileLogHandler = logging.FileHandler('blockchain.log')
+logger.addHandler(fileLogHandler)
+# logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def config_init():
@@ -25,10 +32,26 @@ def config_init():
     config.set('api', 'bind_ip', '0.0.0.0')
     config.set('api', 'port', '5000')
     config.add_section('identity')
-    config.set('identity', 'uuid', str(uuid4()).replace('-', ''))
+    user_uuid = str(uuid4()).replace('-', '')
+    logger.info('User uuid: ' + user_uuid)
+    config.set('identity', 'uuid', user_uuid)
     config.add_section('data')
     config.set('data', 'chain_dir', 'chain_data')
     config.write(open('config.ini', 'w'))
+    logger.info('First run config generated.')
+
+
+@app.route('/nodes', methods=['GET'])
+def nodes_list():
+    """
+    Show the list of registered nodes.
+    :return: The json type of the nodes data.
+    """
+    response = {
+        'nodes': [node for node in MainChain.nodes],
+        'length': len(MainChain.nodes),
+    }
+    return jsonify(response), 200
 
 
 @app.route('/chain', methods=['GET'])
@@ -146,23 +169,32 @@ def consensus():
 def save_blocks():
     response = {
         'message': 'Chain state saved',
-        'total': MainChain.save_blocks(data_path)
+        'changed_block': MainChain.save_blocks(data_path)
     }
     return jsonify(response), 200
 
 
 if __name__ == '__main__':
     # Judge if config is missing.
+    logger.info('Welcome to blockchain project.')
     if not os.path.exists('config.ini'):
+        logging.warning('Config file not found, setup for the first run.')
         config_init()
     # Read the config file.
     config.read('config.ini')
     # Create data dir.
     data_path = config.get('data', 'chain_dir')
     if not os.path.exists(data_path):
+        logger.warning('Data path not found, setup for the first run.')
         os.makedirs(data_path)
+        logger.info('Will loading blocks.')
+    MainChain.load_blocks(data_path)
+    logger.info('Will complete self registration.')
+    api_url = 'http://' + config.get('api', 'bind_ip') + ':' + str(config.getint('api', 'port'))
+    MainChain.register_node(api_url)
     node_identifier = config.get('identity', 'uuid')
     """
     Run the main app.
     """
+    logger.info('Now the API is open in ' + api_url)
     app.run(host=config.get('api', 'bind_ip'), port=config.getint('api', 'port'))

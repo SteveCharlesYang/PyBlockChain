@@ -5,6 +5,7 @@ import hashlib
 import json
 from time import time
 from urllib.parse import urlparse
+import os
 
 
 class BlockChain(object):
@@ -14,6 +15,18 @@ class BlockChain(object):
         chain: <dict> The chain, or the list of the Blocks.
         transactions: <dict> Temporary stored transactions, awaiting to be stored into blocks.
         nodes: <set> The set of available nodes with url.
+    Methods:
+        new_block: Creating new blocks.
+        new_transaction: Start a new transaction.
+        hash: Hash function.
+        last_block: Give the last position of the chain.
+        proof_of_work: PoW function.
+        valid_proof: Judge which proof is right.
+        register_node: Register a node to the network.
+        valid_chain: Judge if a chain is valid.
+        resolve_conflicts: To judge the conflict.
+        save_blocks: Save the chain data and nodes.
+        load_blocks: Load the chain data and nodes.
     """
     def __init__(self):
         """
@@ -136,11 +149,35 @@ class BlockChain(object):
         :param directory: The directory to save the data.
         :return: Nothing
         """
+        changed_block = []
         with open(directory + '/index.list', 'w') as fp:
             json.dump(len(self.chain), fp)
-        for block_id in [0, len(self.chain)-1]:
-            with open(directory + '/db' + str(block_id) + '.json', 'w') as fp:
-                json.dump(self.chain[block_id], fp)
-        with open(directory + '/nodes.list', 'w') as fp:
+        for block_id in reversed(range(0, len(self.chain))):
+            if not os.path.exists(directory + '/db' + str(block_id) + '.json'):
+                with open(directory + '/db' + str(block_id) + '.json', 'w') as fp:
+                    json.dump(self.chain[block_id], fp)
+                    changed_block.append(block_id)
+            else:
+                continue
+        with open(directory + '/nodes.json', 'w') as fp:
             json.dump(list(self.nodes), fp)
+        return changed_block
+
+    def load_blocks(self, directory):
+        """
+        Load the chain data and nodes.
+        :param directory: The directory to load the data.
+        :return: Nothing
+        """
+        load_chain = []
+        if os.path.exists(directory + '/index.list'):
+            with open(directory + '/index.list') as fp:
+                load_size = json.load(fp)
+            for block_id in range(0, load_size):
+                with open(directory + '/db' + str(block_id) + '.json') as fp:
+                    load_chain.append(json.load(fp))
+            with open(directory + '/nodes.json') as fp:
+                load_nodes = json.load(fp)
+            self.nodes = set(load_nodes)
+            self.chain = load_chain
         return len(self.chain)
