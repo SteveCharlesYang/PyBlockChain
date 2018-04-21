@@ -15,10 +15,13 @@ import json
 from time import time
 from urllib.parse import urlparse
 import os
+import requests
 
 
 class BlockChain(object):
     # TODO:(charles@aic.ac.cn) Add network basic operations for requests lib.
+    # TODO:(charles@aic.ac.cn) Save temporary stored data when program is going to close.
+    # TODO:(cha)
     # TODO:(charles@aic.ac.cn) Creating user-friendly interface.
     """
     Main Part of the BlockChain
@@ -137,21 +140,73 @@ class BlockChain(object):
         parsed_url = urlparse(address)
         self.nodes.add(parsed_url.netloc)
 
+    def request_resolve(self, node_address):
+        neighbours = self.nodes
+        for node in neighbours:
+            try:
+                requests.post(f'http://{node}/nodes/resolve', json={'nodes': node_address})
+            except requests.exceptions.RequestException:
+                pass
+
     def valid_chain(self, chain):
-        # TODO(charles@aic.ac.cn) The process of the validation.
         """
         Judge if a chain is valid.
         :param chain: The chain input.
         :return: The result of judgement.
         """
+        last_block = chain[0]
+        current_index = 1
+
+        while current_index < len(chain):
+            block = chain[current_index]
+            print(f'{last_block}')
+            print(f'{block}')
+            print("\n-----------\n")
+
+            if block['previous_hash'] != self.hash(last_block):
+                return False
+
+            if not self.valid_proof(last_block['proof'], block['proof']):
+                return False
+
+            last_block = block
+            current_index += 1
+
         return True
 
-    def resolve_conflicts(self):
-        # TODO(charles@aic.ac.cn) The process of the consensus system.
+    def resolve_conflicts(self, request_node=None):
         """
         To judge the conflict.
+        :param request_node: <str> The node to resolve.
         :return: To judge if the chain is outdated or bad.
         """
+        if request_node is None:
+            neighbours = self.nodes
+        else:
+            print(request_node + 'requested')
+            neighbours = [request_node]
+        new_chain = None
+
+        max_length = len(self.chain)
+
+        for node in neighbours:
+            try:
+                response = requests.get(f'http://{node}/chain')
+
+                if response.status_code == 200:
+                    length = response.json()['length']
+                    chain = response.json()['chain']
+
+                    if length > max_length and self.valid_chain(chain):
+                        max_length = length
+                        new_chain = chain
+            except requests.exceptions.RequestException:
+                pass
+
+        if new_chain:
+            self.chain = new_chain
+            return True
+
         return False
 
     def save_blocks(self, directory):

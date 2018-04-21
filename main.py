@@ -16,7 +16,6 @@ from Chain import BlockChain
 import configparser as cp
 import os
 import logging
-import sys
 
 config = cp.ConfigParser()
 app = Flask(__name__)
@@ -25,10 +24,9 @@ node_identifier = '-1'
 # Initialize the main blockchain.
 MainChain = BlockChain()
 logger = logging.getLogger('BlockChain')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 fileLogHandler = logging.FileHandler('blockchain.log')
 logger.addHandler(fileLogHandler)
-# logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def config_init():
@@ -100,7 +98,10 @@ def mine():
         'transactions': block['transactions'],
         'proof': block['proof'],
         'previous_hash': block['previous_hash'],
+        # Save automatically when a new block is generaterd
+        'saved_block': MainChain.save_blocks(data_path)
     }
+    MainChain.request_resolve(api_url)
     return jsonify(response), 200
 
 
@@ -150,17 +151,25 @@ def register_nodes():
     response = {
         'message': 'New nodes have been added',
         'total_nodes': list(MainChain.nodes),
+        'sync_replaced': MainChain.resolve_conflicts()
     }
     return jsonify(response), 201
 
 
-@app.route('/nodes/resolve', methods=['GET'])
+@app.route('/nodes/resolve', methods=['POST'])
 def consensus():
     """
     Consensus system check.
     :return: The status of the present chain.
     """
-    replaced = MainChain.resolve_conflicts()
+    values = request.get_json()
+    if values is None:
+        nodes = None
+    else:
+        nodes = values.get('nodes')
+        if nodes is None:
+            return "Error: Please supply a valid list of nodes", 400
+    replaced = MainChain.resolve_conflicts(request_node=nodes)
 
     if replaced:
         response = {
@@ -177,6 +186,7 @@ def consensus():
 
 
 @app.route('/save', methods=['GET'])
+# TODO:(charles@aic.ac.cn) This method should be removed when automatic saving is coded.
 def save_blocks():
     response = {
         'message': 'Chain state saved',
@@ -200,9 +210,9 @@ if __name__ == '__main__':
         os.makedirs(data_path)
         logger.info('Will loading blocks.')
     MainChain.load_blocks(data_path)
-    logger.info('Will complete self registration.')
+    MainChain.resolve_conflicts()
+    MainChain.save_blocks(data_path)
     api_url = 'http://' + config.get('api', 'bind_ip') + ':' + str(config.getint('api', 'port'))
-    MainChain.register_node(api_url)
     node_identifier = config.get('identity', 'uuid')
     """
     Run the main app.
