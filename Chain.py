@@ -1,3 +1,12 @@
+# title           :Chain.py
+# description     :The core function of the blockchain.
+# author          :CharlesYang
+# created         :20180421
+# version         :0.0.5
+# usage           :from Chain import BlockChain
+# notes           :
+# python_version  :3.6.4
+# ==============================================================================
 """
 Main Part of the BlockChain
 """

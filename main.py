@@ -1,3 +1,12 @@
+# title           :main.py
+# description     :The console interface and main program of the blockchain based on flask.
+# author          :CharlesYang
+# created         :20180421
+# version         :0.0.5
+# usage           :python3 main.py
+# notes           :
+# python_version  :3.6.4
+# ==============================================================================
 """
 Web interact with the BlockChain
 """
