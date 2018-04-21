@@ -17,10 +17,12 @@ from uuid import uuid4
 from Chain import BlockChain
 import configparser as cp
 import os
+import sys
 import logging
 from gevent import monkey
 from gevent.pywsgi import WSGIServer
 import time
+import signal
 monkey.patch_all()
 
 # Setup config reader
@@ -36,6 +38,13 @@ logger = logging.getLogger('BlockChain')
 logger.setLevel(logging.DEBUG)
 fileLogHandler = logging.FileHandler('blockchain.log')
 logger.addHandler(fileLogHandler)
+
+
+def sigint_handler(signum, frame):
+    # TODO:(charles@aic.ac.cn) Also save extra data like unprocessed transactions.
+    logger.warning('Exiting the program, will save blocks and extra data.')
+    logger.info('Blocks saved: ' + str(MainChain.save_blocks(data_path)))
+    sys.exit()
 
 
 def config_init():
@@ -219,8 +228,10 @@ def save_blocks():
 
 
 if __name__ == '__main__':
-    # Judge if config is missing.
     logger.info('Welcome to blockchain project.')
+    # Add handle of exiting.
+    signal.signal(signal.SIGINT, sigint_handler)
+    # Judge if config is missing.
     if not os.path.exists('config.ini'):
         logging.warning('Config file not found, setup for the first run.')
         config_init()
