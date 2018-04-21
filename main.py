@@ -16,6 +16,11 @@ from Chain import BlockChain
 import configparser as cp
 import os
 import logging
+from gevent import monkey
+from gevent.pywsgi import WSGIServer
+import time
+monkey.patch_all()
+
 
 config = cp.ConfigParser()
 app = Flask(__name__)
@@ -101,7 +106,7 @@ def mine():
         # Save automatically when a new block is generaterd
         'saved_block': MainChain.save_blocks(data_path)
     }
-    MainChain.request_resolve(api_url)
+    MainChain.request_resolve(config.get('api', 'bind_ip') + ':' + str(config.getint('api', 'port')))
     return jsonify(response), 200
 
 
@@ -160,6 +165,9 @@ def register_nodes():
 def consensus():
     """
     Consensus system check.
+    data = {
+        nodes: [list of nodes]
+    }
     :return: The status of the present chain.
     """
     values = request.get_json()
@@ -169,6 +177,7 @@ def consensus():
         nodes = values.get('nodes')
         if nodes is None:
             return "Error: Please supply a valid list of nodes", 400
+    time.sleep(0.5)
     replaced = MainChain.resolve_conflicts(request_node=nodes)
 
     if replaced:
@@ -218,4 +227,5 @@ if __name__ == '__main__':
     Run the main app.
     """
     logger.info('Now the API is open in ' + api_url)
-    app.run(host=config.get('api', 'bind_ip'), port=config.getint('api', 'port'))
+    http_server = WSGIServer((config.get('api', 'bind_ip'), config.getint('api', 'port')), app)
+    http_server.serve_forever()

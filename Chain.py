@@ -159,9 +159,9 @@ class BlockChain(object):
 
         while current_index < len(chain):
             block = chain[current_index]
-            print(f'{last_block}')
-            print(f'{block}')
-            print("\n-----------\n")
+            # print(f'{last_block}')
+            # print(f'{block}')
+            # print("\n-----------\n")
 
             if block['previous_hash'] != self.hash(last_block):
                 return False
@@ -183,7 +183,6 @@ class BlockChain(object):
         if request_node is None:
             neighbours = self.nodes
         else:
-            print(request_node + 'requested')
             neighbours = [request_node]
         new_chain = None
 
@@ -192,7 +191,6 @@ class BlockChain(object):
         for node in neighbours:
             try:
                 response = requests.get(f'http://{node}/chain')
-
                 if response.status_code == 200:
                     length = response.json()['length']
                     chain = response.json()['chain']
@@ -200,7 +198,7 @@ class BlockChain(object):
                     if length > max_length and self.valid_chain(chain):
                         max_length = length
                         new_chain = chain
-            except requests.exceptions.RequestException:
+            except requests.exceptions.RequestException as err:
                 pass
 
         if new_chain:
