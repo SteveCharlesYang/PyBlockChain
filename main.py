@@ -17,6 +17,7 @@ from uuid import uuid4
 from Chain import BlockChain
 import configparser as cp
 import os
+import socket
 import sys
 import logging
 from gevent import monkey
@@ -30,10 +31,13 @@ config = cp.ConfigParser()
 app = Flask(__name__)
 # ID of the miner/user.
 node_identifier = '-1'
+# Specify the initial node number.
+node0_url = "http://bc0.lan:5000"
 # Initialize the main blockchain.
 MainChain = BlockChain()
 # Setup loggers
-# TODO:(charles@aic.ac.cn) Set debug level in config file.
+# TODO:(charles@aic.ac.cn) Set deb]
+# ug level in config file.
 logger = logging.getLogger('BlockChain')
 logger.setLevel(logging.DEBUG)
 fileLogHandler = logging.FileHandler('blockchain.log')
@@ -63,8 +67,12 @@ def config_init():
     config.set('identity', 'uuid', user_uuid)
     config.add_section('data')
     config.set('data', 'chain_dir', 'chain_data')
-    config.write(open('config.ini', 'w'))
     logger.info('First run config generated.')
+    # The first node to acquire node.
+    config.add_section('global')
+    config.set('global', 'node0_url', node0_url)
+    logger.info('Setting Node0 Loc: ' + node0_url)
+    config.write(open('config.ini', 'w'))
 
 
 @app.route('/nodes', methods=['GET'])
@@ -150,6 +158,11 @@ def new_transaction():
 
     response = {'message': f'Transaction will be added to Block {index}'}
     return jsonify(response), 201
+
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    pass
 
 
 @app.route('/nodes/register', methods=['POST'])
@@ -245,6 +258,8 @@ if __name__ == '__main__':
         logger.info('Will loading blocks.')
     # Load exists data from directory.
     MainChain.load_blocks(data_path)
+    # Register nodes on the Node 0.
+    MainChain.register_node(config.get('global', 'node0_url'))
     # Initially sync with nodes.
     MainChain.resolve_conflicts()
     # Initially save blocks.
@@ -260,3 +275,4 @@ if __name__ == '__main__':
     # Flask is now replaced with concurrent and non-blocking service.
     http_server = WSGIServer((config.get('api', 'bind_ip'), config.getint('api', 'port')), app)
     http_server.serve_forever()
+    print("Test")

@@ -13,6 +13,7 @@ Main Part of the BlockChain
 import hashlib
 import json
 from time import time
+import socket
 from urllib.parse import urlparse
 import os
 import requests
@@ -131,15 +132,41 @@ class BlockChain(object):
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "1926"
 
-    def register_node(self, address):
+    def expand_nodes(self, node_address):
+        """
+
+        :param node_address: <str> Url to get the node address.
+        :return: The list of the acquired nodes.
+        """
+        try:
+            # TODO:(charles@aic.ac.cn) Request for part of the chain to improve performance.
+            response = requests.get(f'http://{node_address}/nodes')
+            if response.status_code == 200:
+                nodes = response.json()['nodes']
+                for node in nodes:
+                    self.register_node(node)
+                return nodes
+        # TODO:(charles@aic.ac.cn) Add exception handle and message of this error.
+        except requests.exceptions.RequestException:
+            pass
+
+    def register_node(self, address, verify=True):
         # TODO:(charles@aic.ac.cn) Add additional steps to verify.
         """
         Register a node to the network.
         :param address: <str> Url of the node.
         :return: Nothing
         """
+        s = socket.socket()
         parsed_url = urlparse(address)
-        self.nodes.add(parsed_url.netloc)
+        if verify:
+            try:
+                s.connect((parsed_url.hostname, parsed_url.port))
+            except:
+                return
+            self.nodes.add(parsed_url.netloc)
+        else:
+            self.nodes.add(parsed_url.netloc)
 
     def request_resolve(self, node_address):
         """
